@@ -1,0 +1,323 @@
+Ex. No: 1 TEXT GENERATION USING PRE-TRAINED FOUNDATION MODELS
+PROGRAM :
+from transformers import pipeline, set_seed
+# Load the pre-trained GPT-2 text generation pipeline
+generator = pipeline("text-generation", model="gpt2")
+set_seed(42)
+# Input prompt
+
+prompt = "Artificial Intelligence will transform the future of"
+# Generate text
+outputs = generator(
+prompt,
+max_length=60,
+num_return_sequences=2,
+temperature=0.8,
+top_k=50,
+top_p=0.95,
+do_sample=True
+)
+for i, out in enumerate(outputs, 1):
+print(f"--- Generated Text {i} ---")
+print(out["generated_text"])
+print()
+
+
+Ex. No: 2 PROMPT ENGINEERING TECHNIQUES FOR CONTENT GENERATION,REASONING AND TASK AUTOMATION
+PROGRAM :
+from transformers import pipeline
+generator = pipeline("text-generation", model="gpt2")
+# 1. Zero-shot prompt
+zero_shot_prompt = "Classify the sentiment of this review as Positive or Negative: 'The product quality is
+excellent!'\nSentiment:"
+# 2. Few-shot prompt
+few_shot_prompt = """Review: 'I loved this movie, it was fantastic.'
+Sentiment: Positive
+Review: 'The service was slow and disappointing.'
+Sentiment: Negative
+Review: 'The product quality is excellent!'
+Sentiment:"""
+# 3. Chain-of-Thought prompt
+cot_prompt = """Q: A shop had 15 apples. It sold 6 and then received 10 more. How many apples now?
+A: Let's think step by step. 15 - 6 = 9. 9 + 10 = 19. The answer is 19.
+Q: A library had 120 books. It lent out 45 and bought 30 new books. How many books now?
+A: Let's think step by step."""
+for name, p in [("Zero-shot", zero_shot_prompt),
+("Few-shot", few_shot_prompt),
+("Chain-of-Thought", cot_prompt)]:
+out = generator(p, max_length=len(p.split())+40, num_return_sequences=1, do_sample=False)
+print(f"=== {name} ===")
+print(out[0]["generated_text"])
+print()
+
+
+Ex. No: 3 CONVERSATIONAL AI CHATBOT USING TRANSFORMER-BASEDLANGUAGE MODELS
+PROGRAM :
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
+tokenizer = AutoTokenizer.from_pretrained("microsoft/DialoGPT-medium")
+model = AutoModelForCausalLM.from_pretrained("microsoft/DialoGPT-medium")
+chat_history_ids = None
+print("Chatbot ready! Type 'quit' to exit.")
+for step in range(5):
+user_input = input(">> User: ")
+if user_input.lower() == "quit":
+break
+new_input_ids = tokenizer.encode(user_input + tokenizer.eos_token, return_tensors="pt")
+bot_input_ids = torch.cat([chat_history_ids, new_input_ids], dim=-1) if chat_history_ids is not None else
+new_input_ids
+chat_history_ids = model.generate(
+bot_input_ids,
+max_length=1000,
+pad_token_id=tokenizer.eos_token_id,
+do_sample=True,
+top_k=50,
+top_p=0.9
+)
+response = tokenizer.decode(chat_history_ids[:, bot_input_ids.shape[-1]:][0], skip_special_tokens=True)
+print(f"Bot: {response}")
+
+
+Ex. No: 4 TEXT SUMMARIZATION AND QUESTION-ANSWERING SYSTEM USINGLARGE LANGUAGE MODELS
+PROGRAM :
+from transformers import pipeline
+# ---------- Text Summarization ----------
+summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
+article = """Generative AI refers to a class of artificial intelligence models capable of
+producing new content such as text, images, audio, and video. Large Language Models (LLMs)
+such as GPT and LLaMA are trained on massive text corpora and can perform a wide range of
+natural language tasks including translation, summarization, and question answering. These
+models are increasingly being deployed in industry applications ranging from customer support
+to software development, transforming how humans interact with machines."""
+summary = summarizer(article, max_length=45, min_length=20, do_sample=False)
+print("Summary:\n", summary[0]["summary_text"])
+# ---------- Question Answering ----------
+qa = pipeline("question-answering", model="distilbert-base-cased-distilled-squad")
+context = article
+question = "What are Large Language Models trained on?"
+answer = qa(question=question, context=context)
+print("\nQuestion:", question)
+print("Answer:", answer["answer"], "| Confidence:", round(answer["score"], 3))
+
+
+Ex. No: 5SENTIMENT ANALYSIS AND DOCUMENT CLASSIFICATION USING FOUNDATION MODELS
+PROGRAM :
+from transformers import pipeline
+# ---------- Sentiment Analysis ----------
+sentiment_analyzer = pipeline("sentiment-analysis")
+reviews = [
+"The new smartphone has an amazing camera and battery life!",
+"The delivery was late and the packaging was damaged."
+]
+for review in reviews:
+result = sentiment_analyzer(review)[0]
+print(f"Review: {review}\n -> {result['label']} ({round(result['score'],3)})\n")
+# ---------- Document Classification (Zero-Shot) ----------
+classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+document = "The central bank raised interest rates to control rising inflation."
+candidate_labels = ["Politics", "Economy", "Sports", "Technology"]
+classification = classifier(document, candidate_labels)
+print("Document:", document)
+for label, score in zip(classification["labels"], classification["scores"]):
+print(f"{label}: {round(score,3)}")
+
+
+Ex. No: 6 RETRIEVAL-AUGMENTED GENERATION (RAG) SYSTEM USING VECTOR DATABASES
+PROGRAM :
+from sentence_transformers import SentenceTransformer
+import faiss
+import numpy as np
+from transformers import pipeline
+# 1. Knowledge base
+documents = [
+"The Eiffel Tower is located in Paris, France and was completed in 1889.",
+
+"Retrieval-Augmented Generation combines document retrieval with text generation.",
+"Python is a popular high-level programming language used in AI development.",
+"Vector databases store embeddings and support fast similarity search."
+]
+# 2. Embed documents
+embed_model = SentenceTransformer("all-MiniLM-L6-v2")
+doc_embeddings = embed_model.encode(documents)
+# 3. Build FAISS index
+dimension = doc_embeddings.shape[1]
+index = faiss.IndexFlatL2(dimension)
+index.add(np.array(doc_embeddings))
+# 4. Query and retrieve top-2 relevant chunks
+query = "What is RAG in AI?"
+query_embedding = embed_model.encode([query])
+D, I = index.search(np.array(query_embedding), k=2)
+retrieved_chunks = [documents[i] for i in I[0]]
+# 5. Build augmented prompt and generate answer
+context = " ".join(retrieved_chunks)
+prompt = f"Context: {context}\nQuestion: {query}\nAnswer:"
+generator = pipeline("text2text-generation", model="google/flan-t5-base")
+answer = generator(prompt, max_length=60)
+print("Retrieved Context:", retrieved_chunks)
+print("Answer:", answer[0]["generated_text"])
+
+Ex. No: 7 AI-POWERED CODE GENERATION AND DEBUGGING ASSISTANT
+PROGRAM :
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
+tokenizer = AutoTokenizer.from_pretrained("Salesforce/codegen-350M-mono")
+model = AutoModelForCausalLM.from_pretrained("Salesforce/codegen-350M-mono")
+def generate_code(prompt, max_new_tokens=80):
+input_ids = tokenizer(prompt, return_tensors="pt").input_ids
+output = model.generate(input_ids, max_new_tokens=max_new_tokens,
+pad_token_id=tokenizer.eos_token_id, do_sample=False)
+return tokenizer.decode(output[0], skip_special_tokens=True)
+# 1. Code generation from a natural-language instruction
+prompt1 = "# Write a Python function to check if a number is prime\ndef is_prime(n):"
+print("Generated Function:\n", generate_code(prompt1))
+# 2. Debugging a faulty snippet
+buggy_code = """# The following function should return the factorial of n, but has a bug. Fix it.
+def factorial(n):
+result = 0
+for i in range(1, n+1):
+result = result * i
+return result
+# Corrected function:
+def factorial_fixed(n):"""
+print("\nDebug Suggestion:\n", generate_code(buggy_code, max_new_tokens=60))
+
+
+Ex. No: 8 IMAGE GENERATION APPLICATION USING DIFFUSION MODELS
+PROGRAM :
+from diffusers import StableDiffusionPipeline
+import torch
+pipe = StableDiffusionPipeline.from_pretrained(
+"runwayml/stable-diffusion-v1-5",
+torch_dtype=torch.float16
+)
+pipe = pipe.to("cuda")
+prompt = "A futuristic city skyline at sunset, digital art, highly detailed"
+image = pipe(
+prompt,
+num_inference_steps=30,
+guidance_scale=7.5
+).images[0]
+image.save("generated_city.png")
+print("Image generated and saved as generated_city.png")
+
+Ex. No: 9 MULTIMODAL AI APPLICATION INTEGRATING TEXT AND IMAGE INPUTS
+PROGRAM :
+from transformers import BlipProcessor, BlipForConditionalGeneration, BlipForQuestionAnswering
+from PIL import Image
+import requests
+image_url = "https://images.unsplash.com/photo-1519125323398-675f0ddb6308"
+raw_image = Image.open(requests.get(image_url, stream=True).raw).convert("RGB")
+# ---------- Image Captioning ----------
+cap_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+cap_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+inputs = cap_processor(raw_image, return_tensors="pt")
+caption_ids = cap_model.generate(**inputs, max_new_tokens=30)
+caption = cap_processor.decode(caption_ids[0], skip_special_tokens=True)
+print("Generated Caption:", caption)
+# ---------- Visual Question Answering ----------
+vqa_processor = BlipProcessor.from_pretrained("Salesforce/blip-vqa-base")
+vqa_model = BlipForQuestionAnswering.from_pretrained("Salesforce/blip-vqa-base")
+question = "What animal is in the picture?"
+vqa_inputs = vqa_processor(raw_image, question, return_tensors="pt")
+answer_ids = vqa_model.generate(**vqa_inputs)
+answer = vqa_processor.decode(answer_ids[0], skip_special_tokens=True)
+print("Question:", question)
+print("Answer:", answer)
+
+
+Ex. No: 10 FINE-TUNING A PRE-TRAINED LANGUAGE MODEL FOR A DOMAIN- SPECIFIC APPLICATION
+
+PROGRAM :
+from datasets import load_dataset
+from transformers import (AutoTokenizer, AutoModelForSequenceClassification,TrainingArguments, Trainer)
+import numpy as np
+from sklearn.metrics import accuracy_score
+# 1. Load a domain-specific dataset (example: IMDB movie reviews)
+dataset = load_dataset("imdb")
+small_train = dataset["train"].shuffle(seed=42).select(range(2000))
+small_test = dataset["test"].shuffle(seed=42).select(range(500))
+# 2. Tokenize
+tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
+def tokenize(batch):
+return tokenizer(batch["text"], padding="max_length", truncation=True, max_length=128)
+train_ds = small_train.map(tokenize, batched=True)
+test_ds = small_test.map(tokenize, batched=True)
+# 3. Load pre-trained model with classification head
+model = AutoModelForSequenceClassification.from_pretrained(
+"distilbert-base-uncased", num_labels=2
+)
+# 4. Training arguments
+args = TrainingArguments(
+output_dir="./results",
+num_train_epochs=2,
+per_device_train_batch_size=8,
+per_device_eval_batch_size=8,
+eval_strategy="epoch",
+logging_steps=50
+)
+def compute_metrics(pred):
+preds = np.argmax(pred.predictions, axis=1)
+return {"accuracy": accuracy_score(pred.label_ids, preds)}
+# 5. Train
+trainer = Trainer(model=model, args=args, train_dataset=train_ds,
+eval_dataset=test_ds, compute_metrics=compute_metrics)
+trainer.train()
+# 6. Evaluate and save
+metrics = trainer.evaluate()
+print("Evaluation metrics:", metrics)
+model.save_pretrained("./fine_tuned_distilbert_imdb")
+
+
+Ex. No: 11 AI-BASED CONTENT GENERATION SYSTEM FOR TEXT, IMAGE AND MULTIMEDIA APPLICATIONS
+PROGRAM :
+from transformers import pipeline
+from diffusers import StableDiffusionPipeline
+from gtts import gTTS
+import torch
+topic = "The benefits of renewable energy"
+# 1. Text generation
+text_generator = pipeline("text2text-generation", model="google/flan-t5-base")
+text_prompt = f"Write a short, engaging paragraph about: {topic}"
+generated_text = text_generator(text_prompt, max_length=80)[0]["generated_text"]
+print("Generated Text:\n", generated_text)
+# 2. Image generation (derived prompt)
+image_prompt = f"An illustration representing {topic}, digital art"
+sd_pipe = StableDiffusionPipeline.from_pretrained(
+"runwayml/stable-diffusion-v1-5", torch_dtype=torch.float16).to("cuda")
+image = sd_pipe(image_prompt, num_inference_steps=25).images[0]
+image.save("content_image.png")
+print("Image saved as content_image.png")
+# 3. Audio generation (text-to-speech)
+tts = gTTS(text=generated_text, lang="en")
+tts.save("content_audio.mp3")
+print("Audio saved as content_audio.mp3")
+
+
+Ex. No: 12 DEPLOYMENT AND EVALUATION OF A GENERATIVE AI APPLICATION USING CLOUD-BASED APIs AND AI FRAMEWORKS
+PROGRAM :
+import gradio as gr
+from transformers import pipeline
+import evaluate
+# ---------- 1. Build and Deploy the App ----------
+summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
+def summarize_text(input_text):
+result = summarizer(input_text, max_length=45, min_length=15, do_sample=False)
+return result[0]["summary_text"]
+demo = gr.Interface(
+fn=summarize_text,
+inputs=gr.Textbox(lines=8, label="Enter text to summarize"),
+outputs=gr.Textbox(label="Generated Summary"),
+title="GenAI Text Summarizer",
+description="A cloud-deployable Generative AI summarization app built with Gradio."
+)
+demo.launch(share=True) # share=True generates a public cloud URL
+# ---------- 2. Evaluate Generated Output ----------
+rouge = evaluate.load("rouge")
+generated_summaries = [
+"AI models generate new content such as text and images.",
+]
+reference_summaries = [
+"Generative AI models are capable of producing new content including text and images.",
+]
+scores = rouge.compute(predictions=generated_summaries, references=reference_summaries)
+print("ROUGE Evaluation Scores:", scores)
